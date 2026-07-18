@@ -20,6 +20,11 @@ export default function App() {
   // 'carregando' | 'ok' | 'sem' (confirmado que não existe) | 'offline' (sem rede e sem cache)
   const [perfilStatus, setPerfilStatus] = useState('carregando')
   const [souAdmin, setSouAdmin] = useState(false)
+  const [redefinindo, setRedefinindo] = useState(false)
+  const [novaSenha1, setNovaSenha1] = useState('')
+  const [novaSenha2, setNovaSenha2] = useState('')
+  const [verNova, setVerNova] = useState(false)
+  const [msgSenha, setMsgSenha] = useState('')
 
   const recarregar = useCallback(async () => {
     if (!sessao) { setRegistros([]); return }
@@ -30,8 +35,9 @@ export default function App() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSessao(data.session || null))
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((evento, s) => {
       setSessao(s || null)
+      if (evento === 'PASSWORD_RECOVERY') setRedefinindo(true)
       if (!s) { localStorage.removeItem('dt_perfil'); setPerfil(null); setPerfilStatus('carregando') }
     })
     return () => sub.subscription.unsubscribe()
@@ -72,6 +78,48 @@ export default function App() {
 
   if (sessao === undefined) return null
   if (!sessao) return <Auth />
+
+  // Tela de redefinição: chegou pelo link "Esqueci minha senha" do e-mail.
+  if (redefinindo) {
+    const salvarNovaSenha = async (e) => {
+      e.preventDefault()
+      setMsgSenha('')
+      if (novaSenha1.length < 6) { setMsgSenha('erro:A senha precisa de pelo menos 6 caracteres.'); return }
+      if (novaSenha1 !== novaSenha2) { setMsgSenha('erro:As duas senhas não são iguais. Digite a mesma senha nos dois campos.'); return }
+      const { error } = await supabase.auth.updateUser({ password: novaSenha1 })
+      if (error) setMsgSenha('erro:Não foi possível salvar. ' + (error.message.includes('different') ? 'A senha nova precisa ser diferente da antiga.' : 'Tente novamente.'))
+      else { setMsgSenha('ok:Senha alterada com sucesso!'); setTimeout(() => { setRedefinindo(false); setNovaSenha1(''); setNovaSenha2('') }, 1500) }
+    }
+    return (
+      <div className="centro-login">
+        <div className="logo">🔑</div>
+        <h1>Criar nova senha</h1>
+        <p className="sub">Digite a senha nova duas vezes para confirmar.</p>
+        <form onSubmit={salvarNovaSenha}>
+          <label htmlFor="ns1">Nova senha</label>
+          <div style={{ position: 'relative' }}>
+            <input id="ns1" type={verNova ? 'text' : 'password'} required minLength={6}
+              autoComplete="new-password" value={novaSenha1}
+              onChange={(e) => setNovaSenha1(e.target.value)}
+              style={{ paddingRight: 44, width: '100%', boxSizing: 'border-box' }} />
+            <button type="button" onClick={() => setVerNova(!verNova)}
+              aria-label={verNova ? 'Ocultar senha' : 'Mostrar senha'}
+              style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 4 }}>
+              {verNova ? '🙈' : '👁️'}
+            </button>
+          </div>
+          <label htmlFor="ns2">Repita a nova senha</label>
+          <input id="ns2" type={verNova ? 'text' : 'password'} required minLength={6}
+            autoComplete="new-password" value={novaSenha2}
+            onChange={(e) => setNovaSenha2(e.target.value)} />
+          <button className="botao">Salvar nova senha</button>
+        </form>
+        {msgSenha.startsWith('erro:') && <p className="msg-erro">{msgSenha.slice(5)}</p>}
+        {msgSenha.startsWith('ok:') && <p className="msg-ok">{msgSenha.slice(3)}</p>}
+      </div>
+    )
+  }
 
   // Primeiro acesso confirmado sem cadastro: o wizard é a porta de entrada.
   // (Sem rede não bloqueia: registrar fatos vem primeiro — Celular-Piso.)
