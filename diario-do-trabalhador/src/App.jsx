@@ -9,6 +9,7 @@ import Auth from './screens/Auth'
 import Formulario from './screens/Formulario'
 import Detalhe from './screens/Detalhe'
 import Cadastro from './screens/Cadastro'
+import Admin from './screens/Admin'
 
 export default function App() {
   const [sessao, setSessao] = useState(undefined) // undefined = carregando
@@ -18,6 +19,7 @@ export default function App() {
   const [perfil, setPerfil] = useState(() => perfilEmCache())
   // 'carregando' | 'ok' | 'sem' (confirmado que não existe) | 'offline' (sem rede e sem cache)
   const [perfilStatus, setPerfilStatus] = useState('carregando')
+  const [souAdmin, setSouAdmin] = useState(false)
 
   const recarregar = useCallback(async () => {
     if (!sessao) { setRegistros([]); return }
@@ -46,6 +48,14 @@ export default function App() {
       else { setPerfil(row); setPerfilStatus('ok') }
     })
     return () => { vivo = false }
+  }, [sessao])
+
+  // O botão Administrador só existe para contas presentes em dt_admins.
+  useEffect(() => {
+    if (!sessao) { setSouAdmin(false); return }
+    supabase.from('dt_admins').select('user_id').eq('user_id', sessao.user.id).maybeSingle()
+      .then(({ data }) => setSouAdmin(!!data))
+      .catch(() => setSouAdmin(false))
   }, [sessao])
 
   useEffect(() => {
@@ -92,6 +102,9 @@ export default function App() {
               aria-label={'Seu nível de cadastro: ' + NIVEIS[perfil.nivel].nome}>
               {NIVEIS[perfil.nivel].selo} {NIVEIS[perfil.nivel].nome}
             </button>
+          )}
+          {souAdmin && (
+            <button onClick={() => setTela({ nome: 'admin' })}>🛡️ Administrador</button>
           )}
           <button onClick={() => supabase.auth.signOut()}>Sair</button>
         </div>
@@ -180,6 +193,10 @@ export default function App() {
 
       {tela.nome === 'detalhe' && (
         <Detalhe registro={tela.registro} aoVoltar={() => setTela({ nome: 'inicio' })} />
+      )}
+
+      {tela.nome === 'admin' && souAdmin && (
+        <Admin aoVoltar={() => setTela({ nome: 'inicio' })} />
       )}
 
       {tela.nome === 'perfil' && (
