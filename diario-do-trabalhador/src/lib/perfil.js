@@ -1,38 +1,14 @@
-// Cadastro Inteligente Progressivo (Pilar 6): pedir dado em troca de
-// benefício claro, com consentimento LGPD. Nível oficial vem do servidor;
-// aqui só espelhamos a regra para mostrar "o que falta" na interface.
+// Cadastro Inteligente Progressivo 2.0 (Pilar 6): dado em troca de benefício,
+// com consentimento LGPD. Nível e completude vêm do servidor.
 import { supabase } from './supabase'
 
-export const TERMO_VERSAO = '2026-07-17'
+export const TERMO_VERSAO = '2026-07-18'
 
 export const NIVEIS = {
-  bronze: { selo: '🥉', nome: 'Bronze', beneficio: 'Diário completo e protegido' },
-  prata: { selo: '🥈', nome: 'Prata', beneficio: 'Alertas e informações do seu perfil profissional' },
-  ouro: { selo: '🥇', nome: 'Ouro', beneficio: 'Prioridade nos serviços e parceiros do ecossistema' }
-}
-
-// Campos exigidos para o nível Prata (raio-x estilo Gov.BR + vida profissional).
-export const CAMPOS_PRATA = [
-  ['cpf', 'CPF'],
-  ['data_nascimento', 'Data de nascimento'],
-  ['nome_mae', 'Nome da mãe'],
-  ['cep', 'CEP'],
-  ['cidade', 'Cidade'],
-  ['uf', 'Estado (UF)'],
-  ['escolaridade', 'Escolaridade'],
-  ['situacao_trabalho', 'Situação de trabalho'],
-  ['profissao', 'Profissão / função'],
-  ['ctps_numero', 'Número da Carteira de Trabalho'],
-  ['sindicato_filiado', 'Filiação a sindicato'],
-  ['tem_advogado', 'Advogado trabalhista']
-]
-
-export function faltamParaPrata(p) {
-  if (!p) return CAMPOS_PRATA.map(([, rotulo]) => rotulo)
-  return CAMPOS_PRATA.filter(([chave]) => {
-    const v = p[chave]
-    return v === null || v === undefined || String(v).trim() === ''
-  }).map(([, rotulo]) => rotulo)
+  bronze: { selo: '🥉', nome: 'Inicial', beneficio: 'Diário completo e protegido' },
+  prata: { selo: '🥈', nome: 'Prata', beneficio: 'Funcionalidades extras liberadas' },
+  ouro: { selo: '🥇', nome: 'Ouro', beneficio: 'Benefícios exclusivos e recomendações personalizadas' },
+  diamante: { selo: '💎', nome: 'Diamante', beneficio: 'Vantagens premium e diagnósticos avançados' }
 }
 
 export async function carregarPerfil() {
@@ -63,11 +39,13 @@ export async function salvarPerfil(campos) {
   const linha = { ...campos, user_id: data.session.user.id, termo_versao: TERMO_VERSAO }
   // Campos controlados pelo servidor: o cliente nunca os envia.
   delete linha.nivel
+  delete linha.completude
   delete linha.consentido_em
   delete linha.criado_em
   delete linha.atualizado_em
   // datas vazias viram null (o Postgres rejeita '' em colunas date)
   if (linha.data_nascimento === '') linha.data_nascimento = null
+  if (linha.data_admissao === '') linha.data_admissao = null
   const { data: salvo, error } = await supabase
     .from('dt_perfis')
     .upsert(linha, { onConflict: 'user_id' })
@@ -76,6 +54,18 @@ export async function salvarPerfil(campos) {
   if (error) throw error
   localStorage.setItem('dt_perfil', JSON.stringify(salvo))
   return salvo
+}
+
+// Busca automática de cidade/UF pelo CEP (ViaCEP — serviço público e gratuito).
+export async function buscarCEP(cep) {
+  const limpo = String(cep || '').replace(/\D/g, '')
+  if (limpo.length !== 8) return null
+  try {
+    const r = await fetch('https://viacep.com.br/ws/' + limpo + '/json/')
+    const d = await r.json()
+    if (d && !d.erro) return { cidade: d.localidade || '', uf: d.uf || '' }
+  } catch { /* sem internet: preencher manualmente */ }
+  return null
 }
 
 // Foto → miniatura comprimida (Celular-Piso: nada de upload pesado).
