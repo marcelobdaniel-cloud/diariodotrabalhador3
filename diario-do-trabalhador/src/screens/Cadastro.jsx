@@ -36,7 +36,7 @@ const N2 = [
   { g: 'Educação' },
   { c: 'escolaridade', r: 'Escolaridade', t: 'select', col: true, o: ['Fundamental incompleto','Fundamental completo','Médio incompleto','Médio completo','Técnico','Superior incompleto','Superior completo','Pós-graduação'] },
   { c: 'cursos', r: 'Cursos que fez ou faz', t: 'text' },
-  { c: 'idiomas', r: 'Idiomas', t: 'text', ph: 'ex.: espanhol básico' },
+  { c: 'idiomas', r: 'Idiomas que fala ou estuda', t: 'multi', o: ['Inglês','Espanhol','Francês','Alemão','Italiano','Japonês','Mandarim','Libras'] },
   { g: 'Finanças' },
   { c: 'faixa_renda_familiar', r: 'Renda familiar (todos da casa)', t: 'select', o: ['Até 2 salários','2 a 4 salários','4 a 6 salários','6 a 10 salários','Acima de 10 salários'] },
   { c: 'bancos', r: 'Bancos que usa', t: 'text', ph: 'ex.: Caixa, Nubank' },
@@ -121,6 +121,76 @@ const N3 = [
 
 function rotuloOpcao(v) { return v === 'sim' ? 'Sim' : v === 'nao' ? 'Não' : v }
 
+
+// Componentes FORA do Cadastro: estáveis entre renderizações, o cursor
+// permanece na caixa enquanto a pessoa digita.
+function CampoAuto({ def, valor, mudar, aoDigitarCEP }) {
+  const id = 'f_' + def.c
+  if (def.t === 'select') {
+    return (
+      <div>
+        <label htmlFor={id}>{def.r}</label>
+        <select id={id} value={valor} onChange={(e) => mudar(e.target.value)}>
+          <option value="">— escolher —</option>
+          {def.o.map((op) => <option key={op} value={op}>{rotuloOpcao(op)}</option>)}
+        </select>
+      </div>
+    )
+  }
+  if (def.t === 'multi') {
+    const marcados = String(valor).split(',').filter(Boolean)
+    const alternar = (op) => {
+      const novo = marcados.includes(op) ? marcados.filter((x) => x !== op) : [...marcados, op]
+      mudar(novo.join(','))
+    }
+    return (
+      <div>
+        <label>{def.r}</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+          {def.o.map((op) => (
+            <button type="button" key={op} onClick={() => alternar(op)}
+              className="voltar" style={{ margin: 0,
+                background: marcados.includes(op) ? '#14532d' : undefined,
+                color: marcados.includes(op) ? '#fff' : undefined }}>
+              {marcados.includes(op) ? '✓ ' : ''}{op}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+  if (def.t === 'cep') {
+    return (
+      <div>
+        <label htmlFor={id}>{def.r}</label>
+        <input id={id} type="text" inputMode="numeric" maxLength={9} placeholder={def.ph}
+          value={valor} onChange={(e) => aoDigitarCEP(e.target.value)} />
+      </div>
+    )
+  }
+  return (
+    <div>
+      <label htmlFor={id}>{def.r}</label>
+      <input id={id}
+        type={def.t === 'data' ? 'date' : def.t === 'numero' ? 'number' : 'text'}
+        inputMode={def.t === 'numero' ? 'numeric' : undefined}
+        placeholder={def.ph} required={!!def.req}
+        value={valor} onChange={(e) => mudar(e.target.value)} />
+    </div>
+  )
+}
+
+function Grupo({ defs, p, grupo, ocultar, set, setJ, aoDigitarCEP }) {
+  return defs.map((def, i) => {
+    if (def.g) return <h3 className="secao" key={'g' + i}>{def.g}</h3>
+    if (ocultar && ocultar.includes(def.c)) return null
+    const emColuna = grupo && !def.col ? grupo : null
+    const valor = emColuna ? (p[emColuna][def.c] ?? '') : (p[def.c] ?? '')
+    const mudar = (v) => (emColuna ? setJ(emColuna, def.c, v) : set(def.c, v))
+    return <CampoAuto key={def.c} def={def} valor={valor} mudar={mudar} aoDigitarCEP={aoDigitarCEP} />
+  })
+}
+
 export default function Cadastro({ perfil, emailConta, aoConcluir, aoVoltar, passoInicial }) {
   const [passo, setPasso] = useState(passoInicial || 1)
   const [p, setP] = useState(() => ({
@@ -175,73 +245,6 @@ export default function Cadastro({ perfil, emailConta, aoConcluir, aoVoltar, pas
     salvar(2)
   }
 
-  function CampoAuto({ def, grupo }) {
-    const valor = grupo ? (p[grupo][def.c] ?? '') : (p[def.c] ?? '')
-    const mudar = (v) => (grupo ? setJ(grupo, def.c, v) : set(def.c, v))
-    const id = (grupo || 'c') + '_' + def.c
-    if (def.t === 'select') {
-      return (
-        <div>
-          <label htmlFor={id}>{def.r}</label>
-          <select id={id} value={valor} onChange={(e) => mudar(e.target.value)}>
-            <option value="">— escolher —</option>
-            {def.o.map((op) => <option key={op} value={op}>{rotuloOpcao(op)}</option>)}
-          </select>
-        </div>
-      )
-    }
-    if (def.t === 'multi') {
-      const marcados = String(valor).split(',').filter(Boolean)
-      const alternar = (op) => {
-        const novo = marcados.includes(op) ? marcados.filter((x) => x !== op) : [...marcados, op]
-        mudar(novo.join(','))
-      }
-      return (
-        <div>
-          <label>{def.r}</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-            {def.o.map((op) => (
-              <button type="button" key={op} onClick={() => alternar(op)}
-                className="voltar" style={{ margin: 0,
-                  background: marcados.includes(op) ? '#14532d' : undefined,
-                  color: marcados.includes(op) ? '#fff' : undefined }}>
-                {marcados.includes(op) ? '✓ ' : ''}{op}
-              </button>
-            ))}
-          </div>
-        </div>
-      )
-    }
-    if (def.t === 'cep') {
-      return (
-        <div>
-          <label htmlFor={id}>{def.r}</label>
-          <input id={id} type="text" inputMode="numeric" maxLength={9} placeholder={def.ph}
-            value={valor} onChange={(e) => aoDigitarCEP(e.target.value)} />
-        </div>
-      )
-    }
-    return (
-      <div>
-        <label htmlFor={id}>{def.r}</label>
-        <input id={id}
-          type={def.t === 'data' ? 'date' : def.t === 'numero' ? 'number' : 'text'}
-          inputMode={def.t === 'numero' ? 'numeric' : undefined}
-          placeholder={def.ph} required={!!def.req}
-          value={valor} onChange={(e) => mudar(e.target.value)} />
-      </div>
-    )
-  }
-
-  function Grupo({ defs, grupo, ocultar }) {
-    return defs.map((def, i) => {
-      if (def.g) return <h3 className="secao" key={'g' + i}>{def.g}</h3>
-      if (ocultar && ocultar.includes(def.c)) return null
-      const emColuna = grupo && !def.col ? grupo : null
-      return <CampoAuto key={def.c} def={def} grupo={emColuna} />
-    })
-  }
-
   const pct = perfil && perfil.completude != null ? perfil.completude : null
 
   return (
@@ -273,7 +276,7 @@ export default function Cadastro({ perfil, emailConta, aoConcluir, aoVoltar, pas
         <form onSubmit={enviarPasso1}>
           <h2>🥉 Cadastro inicial</h2>
           <p>Menos de 3 minutos — e seu Diário já funciona completo e protegido.</p>
-          <Grupo defs={N1} />
+          <Grupo defs={N1} p={p} set={set} setJ={setJ} aoDigitarCEP={aoDigitarCEP} />
 
           <h3 className="secao">Segurança e privacidade</h3>
           <div className="consent-box">
@@ -314,7 +317,7 @@ export default function Cadastro({ perfil, emailConta, aoConcluir, aoVoltar, pas
             Cada resposta aumenta sua barra. Aos <strong>40%</strong> você vira
             Prata. Pode pular o que quiser e completar depois.
           </p>
-          <Grupo defs={N2} grupo="extras" />
+          <Grupo defs={N2} grupo="extras" p={p} set={set} setJ={setJ} aoDigitarCEP={aoDigitarCEP} />
           {p.sindicato_filiado === 'sim' && (
             <div>
               <label htmlFor="sindicato_nome">Qual sindicato?</label>
@@ -349,7 +352,7 @@ export default function Cadastro({ perfil, emailConta, aoConcluir, aoVoltar, pas
             </label>
           </div>
 
-          <Grupo defs={N3} grupo="platinum" ocultar={p.consent_saude ? [] : SAUDE} />
+          <Grupo defs={N3} grupo="platinum" ocultar={p.consent_saude ? [] : SAUDE} p={p} set={set} setJ={setJ} aoDigitarCEP={aoDigitarCEP} />
 
           <h3 className="secao">Foto do rosto (opcional)</h3>
           {p.foto_b64
