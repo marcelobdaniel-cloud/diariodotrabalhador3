@@ -244,3 +244,33 @@ h3.secao {
 .centro-login .logo { font-size: 3rem; text-align: center; margin-bottom: 8px; }
 .centro-login h1 { text-align: center; font-size: 1.4rem; color: var(--verde-escuro); margin-bottom: 4px; }
 .centro-login .sub { text-align: center; color: var(--cinza-600); margin-bottom: 24px; }
+/* ——— Dashboard e Barra Inferior (Onda de layout) ——— */
+.grade-acoes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 12px 0; }
+.acao {
+  color: var(--branco); border: none; border-radius: 12px; padding: 14px 6px;
+  font-size: 1.5rem; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  min-height: 72px; cursor: pointer;
+}
+.acao span { font-size: .8rem; font-weight: 700; }
+
+.painel-numeros { display: flex; justify-content: space-between; text-align: center; margin-top: 8px; }
+.painel-numeros div { display: flex; flex-direction: column; flex: 1; }
+.painel-numeros strong { font-size: 1.15rem; color: var(--verde-escuro); }
+.painel-numeros span { font-size: .75rem; color: var(--cinza-600); }
+
+.barra-inferior {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px; background: var(--branco);
+  border-top: 1px solid var(--cinza-300);
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  padding: 4px 0 max(6px, env(safe-area-inset-bottom)); z-index: 20;
+}
+.barra-inferior button {
+  background: none; border: none; color: var(--cinza-600);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 1.3rem; padding: 6px 0; min-height: 54px; cursor: pointer;
+}
+.barra-inferior button span { font-size: .68rem; font-weight: 600; }
+.barra-inferior button.ativo { color: var(--verde-escuro); }
+.barra-inferior button.ativo span { text-decoration: underline; text-underline-offset: 4px; }
+@media print { .barra-inferior { display: none !important; } }
