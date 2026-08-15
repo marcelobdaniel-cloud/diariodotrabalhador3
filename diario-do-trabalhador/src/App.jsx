@@ -10,6 +10,12 @@ import Formulario from './screens/Formulario'
 import Detalhe from './screens/Detalhe'
 import Cadastro from './screens/Cadastro'
 import Admin from './screens/Admin'
+import Ponto from './screens/Ponto'
+import Calculadoras from './screens/Calculadoras'
+import Sos from './screens/Sos'
+import Relatorio from './screens/Relatorio'
+import Dashboard from './screens/Dashboard'
+import Verificar from './screens/Verificar'
 
 export default function App() {
   const [sessao, setSessao] = useState(undefined) // undefined = carregando
@@ -76,6 +82,11 @@ export default function App() {
     return () => { parar(); window.removeEventListener('online', on); window.removeEventListener('offline', off); window.removeEventListener('dt-sync', recarregar) }
   }, [recarregar, sessao])
 
+  // Página pública: juiz/advogado/RH confere um hash sem precisar de conta.
+  if (window.location.pathname.startsWith('/verificar')) {
+    return <Verificar aoVoltar={() => { window.history.pushState({}, '', '/'); window.location.reload() }} />
+  }
+
   if (sessao === undefined) return null
   if (!sessao) return <Auth />
 
@@ -140,6 +151,15 @@ export default function App() {
 
   const pendentesN = registros.filter((r) => r.status === 'pendente').length
 
+  const navegar = (nome, registro) => setTela(registro ? { nome, registro } : { nome })
+  const ABAS = [
+    ['inicio', '🏠', 'Início'],
+    ['diario', '📗', 'Diário'],
+    ['ponto', '🕐', 'Ponto'],
+    ['calc', '🧮', 'Cálculos'],
+    ['mais', '☰', 'Mais']
+  ]
+
   return (
     <>
       <header className="topo">
@@ -151,56 +171,42 @@ export default function App() {
               {NIVEIS[perfil.nivel].selo} {NIVEIS[perfil.nivel].nome}
             </button>
           )}
-          {souAdmin && (
-            <button onClick={() => setTela({ nome: 'admin' })}>🛡️ Administrador</button>
-          )}
           <button onClick={() => supabase.auth.signOut()}>Sair</button>
         </div>
       </header>
 
       {tela.nome === 'inicio' && (
+        <Dashboard registros={registros} perfil={perfil} navegar={navegar} />
+      )}
+
+      {tela.nome === 'diario' && (
         <div className="conteudo">
-          {registros.length === 0 ? (
-            <>
-              <h2>Bem-vindo ao seu Diário</h2>
-              <p>
-                Aqui você registra o que acontece na sua vida profissional,
-                no dia em que acontece. Cada registro recebe data, hora e um
-                código de verificação que não pode ser alterado.
-              </p>
-              <p>Toque no botão verde abaixo para começar.</p>
-              <div className="aviso-limite">
-                O Diário informa e organiza. Ele não substitui a orientação de
-                um advogado ou do seu sindicato.
-              </div>
-            </>
-          ) : (
-            <>
-              <h2>Seus registros</h2>
-              {registros.map((r) => {
-                const def = TIPOS[r.tipo]
-                const s = selo(r.fato_em, r.registrado_em_dispositivo)
-                return (
-                  <div key={r.id} className="cartao" role="button" tabIndex={0}
-                    onClick={() => setTela({ nome: 'detalhe', registro: r })}
-                    onKeyDown={(e) => e.key === 'Enter' && setTela({ nome: 'detalhe', registro: r })}>
-                    <div className="linha1">
-                      <span>{def.icone}</span>
-                      <span className="nome-tipo">{def.nome}</span>
-                      <span className={'selo ' + s.cor}>{s.cor === 'verde' ? '≤48h' : s.cor === 'amarelo' ? '2–30d' : '>30d'}</span>
-                    </div>
-                    {r.relato && <div className="relato">{r.relato}</div>}
-                    <div className="datas">
-                      Fato: {dataBR(r.fato_em)} ·{' '}
-                      {r.status === 'sincronizado'
-                        ? <span className="sync ok">✓ selado pelo servidor</span>
-                        : <span className="sync pendente">⏳ aguardando conexão</span>}
-                    </div>
-                  </div>
-                )
-              })}
-            </>
+          <h2>📗 Seus registros</h2>
+          {registros.length === 0 && (
+            <p>Nada registrado ainda. Toque no botão verde abaixo quando algo acontecer no trabalho.</p>
           )}
+          {registros.map((r) => {
+            const def = TIPOS[r.tipo]
+            const s = selo(r.fato_em, r.registrado_em_dispositivo)
+            return (
+              <div key={r.id} className="cartao" role="button" tabIndex={0}
+                onClick={() => setTela({ nome: 'detalhe', registro: r })}
+                onKeyDown={(e) => e.key === 'Enter' && setTela({ nome: 'detalhe', registro: r })}>
+                <div className="linha1">
+                  <span>{def.icone}</span>
+                  <span className="nome-tipo">{def.nome}</span>
+                  <span className={'selo ' + s.cor}>{s.cor === 'verde' ? '≤48h' : s.cor === 'amarelo' ? '2–30d' : '>30d'}</span>
+                </div>
+                {r.relato && <div className="relato">{r.relato}</div>}
+                <div className="datas">
+                  Fato: {dataBR(r.fato_em)} ·{' '}
+                  {r.status === 'sincronizado'
+                    ? <span className="sync ok">✓ selado pelo servidor</span>
+                    : <span className="sync pendente">⏳ aguardando conexão</span>}
+                </div>
+              </div>
+            )
+          })}
           <button className="botao-central" onClick={() => setTela({ nome: 'tipos' })}>
             + O que aconteceu?
           </button>
@@ -213,6 +219,21 @@ export default function App() {
           {online && pendentesN > 0 && (
             <div className="rodape-offline">Enviando {pendentesN} registro(s) para confirmação…</div>
           )}
+        </div>
+      )}
+
+      {tela.nome === 'mais' && (
+        <div className="conteudo">
+          <h2>☰ Mais</h2>
+          <div className="grade-tipos">
+            <button className="tipo-btn" onClick={() => setTela({ nome: 'sos' })}><span className="icone">🆘</span><span>SOS Trabalhador</span></button>
+            <button className="tipo-btn" onClick={() => setTela({ nome: 'relatorio' })}><span className="icone">📄</span><span>Relatório / Dossiê</span></button>
+            <button className="tipo-btn" onClick={() => setTela({ nome: 'perfil' })}><span className="icone">👤</span><span>Meu cadastro</span></button>
+            <button className="tipo-btn" onClick={() => setTela({ nome: 'verificar' })}><span className="icone">🔐</span><span>Verificar registro</span></button>
+            {souAdmin && (
+              <button className="tipo-btn" onClick={() => setTela({ nome: 'admin' })}><span className="icone">🛡️</span><span>Administrador</span></button>
+            )}
+          </div>
         </div>
       )}
 
@@ -243,6 +264,26 @@ export default function App() {
         <Detalhe registro={tela.registro} aoVoltar={() => setTela({ nome: 'inicio' })} />
       )}
 
+      {tela.nome === 'ponto' && (
+        <Ponto aoVoltar={() => setTela({ nome: 'inicio' })} />
+      )}
+
+      {tela.nome === 'sos' && (
+        <Sos aoVoltar={() => setTela({ nome: 'inicio' })} aoSalvar={recarregar} />
+      )}
+
+      {tela.nome === 'calc' && (
+        <Calculadoras aoVoltar={() => setTela({ nome: 'inicio' })} />
+      )}
+
+      {tela.nome === 'relatorio' && (
+        <Relatorio aoVoltar={() => setTela({ nome: 'inicio' })} />
+      )}
+
+      {tela.nome === 'verificar' && (
+        <Verificar aoVoltar={() => setTela({ nome: 'mais' })} />
+      )}
+
       {tela.nome === 'admin' && souAdmin && (
         <Admin aoVoltar={() => setTela({ nome: 'inicio' })} />
       )}
@@ -256,6 +297,15 @@ export default function App() {
           aoConcluir={(p) => { setPerfil(p); setTela({ nome: 'inicio' }) }}
         />
       )}
+
+      <nav className="barra-inferior" aria-label="Navegação principal">
+        {ABAS.map(([nome, icone, rotulo]) => (
+          <button key={nome} className={tela.nome === nome ? 'ativo' : ''}
+            onClick={() => setTela({ nome })} aria-label={rotulo}>
+            {icone}<span>{rotulo}</span>
+          </button>
+        ))}
+      </nav>
     </>
   )
 }
